@@ -138,3 +138,6 @@ We have presented a novel approach to neural learning that demonstrates the effe
 3. Mnih, V., et al. (2015). Human-level control through deep reinforcement learning. Nature, 518(7540), 529-533.
 4. Hassabis, D., et al. (2017). Neuroscience-inspired artificial intelligence. Neuron, 95(2), 245-258.
 5. Silver, D., et al. (2017). Mastering the game of Go without human knowledge. Nature, 550(7676), 354-359.
+
+
+google colab: https://colab.research.google.com/drive/1wNQy9C-LOLLKI3Xkb3bCdSxs_hmvqYCL?usp=sharing
