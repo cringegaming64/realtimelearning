@@ -1,0 +1,180 @@
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import matplotlib.pyplot as plt
+from IPython.display import clear_output
+import time
+import random
+
+class GridWorld:
+    def __init__(self, size=20):
+        self.size = size
+        self.reset()
+        
+    def reset(self):
+        self.grid = np.zeros((self.size, self.size))
+        # Place player (1), goal (2), and enemies (3)
+        self.player_pos = np.array([self.size-2, 1])
+        self.goal_pos = np.array([1, self.size-2])
+        self.enemy_positions = []
+        
+        # Place 5 enemies randomly
+        for _ in range(5):
+            while True:
+                pos = np.array([random.randint(0, self.size-1), random.randint(0, self.size-1)])
+                if not np.array_equal(pos, self.player_pos) and not np.array_equal(pos, self.goal_pos):
+                    self.enemy_positions.append(pos)
+                    break
+        
+        self.update_grid()
+        return self.get_state()
+    
+    def update_grid(self):
+        self.grid.fill(0)
+        self.grid[tuple(self.player_pos)] = 1
+        self.grid[tuple(self.goal_pos)] = 2
+        for pos in self.enemy_positions:
+            self.grid[tuple(pos)] = 3
+    
+    def get_state(self):
+        # Returns a state representation for the neural network
+        state = np.zeros(8)  # 8 sensors: distance and direction to nearest enemy/goal in each quadrant
+        
+        # Calculate distances to goal
+        goal_delta = self.goal_pos - self.player_pos
+        goal_distance = np.sqrt(np.sum(goal_delta**2))
+        goal_angle = np.arctan2(goal_delta[1], goal_delta[0])
+        
+        # Find nearest enemy in each quadrant
+        quadrant_enemies = [float('inf')] * 4
+        for enemy_pos in self.enemy_positions:
+            enemy_delta = enemy_pos - self.player_pos
+            enemy_distance = np.sqrt(np.sum(enemy_delta**2))
+            enemy_angle = np.arctan2(enemy_delta[1], enemy_delta[0])
+            quadrant = int(((enemy_angle + np.pi) * 2 / np.pi)) % 4
+            quadrant_enemies[quadrant] = min(quadrant_enemies[quadrant], enemy_distance)
+        
+        # Normalize and set state
+        state[0:4] = [min(d, 10.0)/10.0 for d in quadrant_enemies]  # Enemy distances
+        state[4] = goal_distance / self.size  # Normalized goal distance
+        state[5:8] = np.array([np.sin(goal_angle), np.cos(goal_angle), 1.0])  # Direction to goal
+        
+        return state
+    
+    def step(self, action):
+        # Actions: 0=up, 1=right, 2=down, 3=left
+        moves = [(-1,0), (0,1), (1,0), (0,-1)]
+        new_pos = self.player_pos + moves[action]
+        
+        # Check bounds
+        if (new_pos < 0).any() or (new_pos >= self.size).any():
+            return self.get_state(), -1, True  # Out of bounds
+        
+        self.player_pos = new_pos
+        self.update_grid()
+        
+        # Check if reached goal
+        if np.array_equal(self.player_pos, self.goal_pos):
+            return self.get_state(), 10, True
+        
+        # Check if hit enemy
+        for enemy_pos in self.enemy_positions:
+            if np.array_equal(self.player_pos, enemy_pos):
+                return self.get_state(), -10, True
+        
+        # Calculate reward based on distance to goal
+        distance_to_goal = np.sqrt(np.sum((self.goal_pos - self.player_pos)**2))
+        reward = 0.1 * (self.size - distance_to_goal) / self.size
+        
+        return self.get_state(), reward, False
+
+class AdaptiveNetwork(nn.Module):
+    def __init__(self, input_size=8, hidden_size=32, output_size=4):
+        super().__init__()
+        self.fc1 = nn.Linear(input_size, hidden_size)
+        self.fc2 = nn.Linear(hidden_size, output_size)
+        
+        # Experience memory for weight adaptation
+        self.experience_memory = []
+        self.max_memory = 1000
+        self.adaptation_rate = 0.1
+        
+    def forward(self, x):
+        x = torch.tensor(x, dtype=torch.float32)
+        x = torch.relu(self.fc1(x))
+        return self.fc2(x)
+    
+    def adapt_weights(self, state, action, reward, next_state, done):
+        # Store experience
+        self.experience_memory.append((state, action, reward, next_state, done))
+        if len(self.experience_memory) > self.max_memory:
+            self.experience_memory.pop(0)
+        
+        # Direct weight modification based on recent experience
+        if reward != 0:  # Only adapt on significant events
+            # Get the weights that contributed to this action
+            with torch.no_grad():
+                state_tensor = torch.tensor(state, dtype=torch.float32)
+                hidden = torch.relu(self.fc1(state_tensor))
+                output_weights = self.fc2.weight[action]
+                
+                # Modify weights based on reward
+                adaptation = self.adaptation_rate * reward
+                
+                # Strengthen or weaken connections based on reward
+                self.fc2.weight.data[action] += adaptation * hidden / torch.norm(hidden)
+                
+                # Also adapt first layer weights that led to this decision
+                active_inputs = (state_tensor != 0).float()
+                self.fc1.weight.data += (adaptation * 0.1 * 
+                    torch.outer(torch.relu(output_weights), active_inputs))
+
+def visualize(env, model, state):
+    plt.clf()
+    plt.imshow(env.grid)
+    plt.title(f'Action Values: {model(state).detach().numpy()}')
+    plt.pause(0.1)
+
+def train(env, model, episodes=1000):
+    for episode in range(episodes):
+        state = env.reset()
+        done = False
+        total_reward = 0
+        
+        while not done:
+            # Get action from model
+            with torch.no_grad():
+                action_values = model(state)
+                action = torch.argmax(action_values).item()
+                
+                # Add some exploration
+                if random.random() < 0.1:  # 10% exploration
+                    action = random.randint(0, 3)
+            
+            # Take action
+            next_state, reward, done = env.step(action)
+            total_reward += reward
+            
+            # Adapt network weights
+            model.adapt_weights(state, action, reward, next_state, done)
+            
+            state = next_state
+            
+            # Visualize every 10 episodes
+            if episode % 10 == 0:
+                visualize(env, model, state)
+        
+        if episode % 10 == 0:
+            print(f"Episode {episode}, Total Reward: {total_reward}")
+            
+        # Clear the output every 10 episodes
+        if episode % 10 == 0:
+            clear_output(wait=True)
+
+# Create environment and model
+env = GridWorld(size=20)
+model = AdaptiveNetwork()
+
+# Train the model
+train(env, model)
