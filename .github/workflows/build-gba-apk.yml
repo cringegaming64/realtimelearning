@@ -57,23 +57,16 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: |
-            set -eu
             adb logcat -c
             adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb shell am start -W -n com.openai.gbapocket/.MainActivity
             sleep 4
-            # Android's first-use immersive-mode confirmation can cover the app.
             adb shell input tap 925 625 || true
             sleep 2
-            STATE="$(adb shell dumpsys activity activities)"
-            echo "$STATE" | grep -A 8 -B 3 com.openai.gbapocket || true
-            echo "$STATE" | grep -Eq "ResumedActivity:.*com.openai.gbapocket/.MainActivity|topResumedActivity=.*com.openai.gbapocket/.MainActivity"
-            LOGS="$(adb logcat -d -v brief)"
-            echo "$LOGS" | grep -E "AndroidRuntime|FATAL EXCEPTION|com.openai.gbapocket|GBAPocket|chromium|crash" | tail -n 250 || true
-            if echo "$LOGS" | grep -q "FATAL EXCEPTION"; then
-              echo "Fatal Android exception detected"
-              exit 1
-            fi
+            adb shell dumpsys activity activities | grep -A 8 -B 3 com.openai.gbapocket || true
+            adb shell dumpsys activity activities | grep -Eq "ResumedActivity:.*com.openai.gbapocket/.MainActivity|topResumedActivity=.*com.openai.gbapocket/.MainActivity"
+            adb logcat -d -v brief | grep -E "AndroidRuntime|FATAL EXCEPTION|com.openai.gbapocket|GBAPocket|chromium|crash" | tail -n 250 || true
+            if adb logcat -d -v brief | grep -q "FATAL EXCEPTION"; then exit 1; fi
             adb shell uiautomator dump /sdcard/window.xml || true
             adb pull /sdcard/window.xml window.xml || true
             cat window.xml || true
