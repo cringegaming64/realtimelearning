@@ -61,16 +61,23 @@ jobs:
             adb logcat -c
             adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb shell am start -W -n com.openai.gbapocket/.MainActivity
-            sleep 5
-            PID=$(adb shell pidof com.openai.gbapocket | tr -d '\r')
-            echo "PID=$PID"
-            adb shell dumpsys activity activities | grep -A 8 -B 3 com.openai.gbapocket || true
-            adb logcat -d -v brief | grep -E "AndroidRuntime|FATAL EXCEPTION|com.openai.gbapocket|GBAPocket|chromium|crash" | tail -n 250 || true
+            sleep 4
+            # Android's first-use immersive-mode confirmation can cover the app.
+            adb shell input tap 925 625 || true
+            sleep 2
+            STATE="$(adb shell dumpsys activity activities)"
+            echo "$STATE" | grep -A 8 -B 3 com.openai.gbapocket || true
+            echo "$STATE" | grep -Eq "ResumedActivity:.*com.openai.gbapocket/.MainActivity|topResumedActivity=.*com.openai.gbapocket/.MainActivity"
+            LOGS="$(adb logcat -d -v brief)"
+            echo "$LOGS" | grep -E "AndroidRuntime|FATAL EXCEPTION|com.openai.gbapocket|GBAPocket|chromium|crash" | tail -n 250 || true
+            if echo "$LOGS" | grep -q "FATAL EXCEPTION"; then
+              echo "Fatal Android exception detected"
+              exit 1
+            fi
             adb shell uiautomator dump /sdcard/window.xml || true
             adb pull /sdcard/window.xml window.xml || true
             cat window.xml || true
             adb exec-out screencap -p > launch.png || true
-            test -n "$PID"
       - name: Prepare artifact
         run: cp app/build/outputs/apk/debug/app-debug.apk GBA-Pocket.apk
       - uses: actions/upload-artifact@v4
