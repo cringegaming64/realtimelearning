@@ -34,7 +34,11 @@ jobs:
           set -euo pipefail
           ASSETS=app/src/main/assets
           cat .build/app.part1.js .build/app.part2.js .build/app.part3.js > "$ASSETS/app.js"
+          python3 .build/patch_app.py "$ASSETS/app.js"
           node --check "$ASSETS/app.js"
+          grep -q "const AUDIO_RATE = 65536" "$ASSETS/app.js"
+          grep -q "smoothVideo: false" "$ASSETS/app.js"
+          grep -q "lostpointercapture" "$ASSETS/app.js"
           curl -fsSL "https://raw.githubusercontent.com/WSeubring/pi-extension-gba/main/vendor/mgba-wasm/dist/mgba.js" -o "$ASSETS/mgba.js"
           curl -fsSL "https://raw.githubusercontent.com/WSeubring/pi-extension-gba/main/vendor/mgba-wasm/dist/mgba.wasm" -o "$ASSETS/mgba.wasm"
           curl -fsSL "https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js" -o "$ASSETS/fflate.js"
