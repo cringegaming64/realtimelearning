@@ -2,7 +2,7 @@
 };
 window.addEventListener('keydown', e => {
   const k = keyMap[e.code] || keyMap[e.key];
-  if (!k || e.repeat) return; e.preventDefault(); ensureAudio(); down(k);
+  if (!k || e.repeat) return; e.preventDefault(); void ensureAudio(); down(k);
 }, true);
 window.addEventListener('keyup', e => {
   const k = keyMap[e.code] || keyMap[e.key];
@@ -18,6 +18,7 @@ function applyLayout() {
   const mode = currentMode();
   document.body.dataset.mode = mode;
   document.body.classList.toggle('stretch', !!settings.stretch);
+  document.body.classList.toggle('smooth-video', !!settings.smoothVideo);
   document.documentElement.style.setProperty('--control-scale', String(settings.controlSize));
   document.documentElement.style.setProperty('--control-opacity', String(settings.opacity));
   const pos = settings.positions[mode];
@@ -25,16 +26,18 @@ function applyLayout() {
     const p = pos[g.dataset.group];
     if (p) { g.style.left = `${p[0]}%`; g.style.top = `${p[1]}%`; }
   });
+  requestAnimationFrame(() => { resizeDisplayCanvas(); if (loaded) drawVideoFrame(); });
 }
 
 function syncSettingsUi() {
   $('#layout-mode').value = settings.layout;
   $('#stretch-screen').checked = settings.stretch;
+  $('#smooth-video').checked = settings.smoothVideo;
   $('#control-size').value = settings.controlSize;
   $('#control-opacity').value = settings.opacity;
   $('#sound-enabled').checked = settings.sound;
   $('#volume').value = settings.volume;
-  if (gainNode) gainNode.gain.value = settings.volume;
+  updateAudioGain();
   applyLayout();
 }
 
@@ -43,9 +46,15 @@ function bindSetting(id, event, setter) {
 }
 bindSetting('#layout-mode','change', el => settings.layout = el.value);
 bindSetting('#stretch-screen','change', el => settings.stretch = el.checked);
+bindSetting('#smooth-video','change', el => settings.smoothVideo = el.checked);
 bindSetting('#control-size','input', el => settings.controlSize = Number(el.value));
 bindSetting('#control-opacity','input', el => settings.opacity = Number(el.value));
-bindSetting('#sound-enabled','change', el => { settings.sound = el.checked; if (el.checked) ensureAudio(); });
+bindSetting('#sound-enabled','change', el => {
+  settings.sound = el.checked;
+  resetAudioQueue(!el.checked);
+  updateAudioGain();
+  if (el.checked) void ensureAudio();
+});
 bindSetting('#volume','input', el => settings.volume = Number(el.value));
 
 function openSettings() { $('#settings-backdrop').hidden = false; }
@@ -99,13 +108,28 @@ $('#forget-rom').addEventListener('click', async () => {
 $('#open-rom').addEventListener('click', async () => { await ensureAudio(); romInput.click(); });
 romInput.addEventListener('change', () => importFile(romInput.files?.[0]));
 
-window.addEventListener('resize', () => applyLayout());
+window.addEventListener('resize', applyLayout);
+window.addEventListener('blur', releaseAll, true);
 window.__orientationChanged = () => setTimeout(applyLayout, 60);
-window.__appPause = () => { releaseAll(); flushSave(); lastTick = performance.now(); };
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { releaseAll(); flushSave(); }
+window.__appPause = () => {
+  releaseAll();
+  flushSave();
+  resetAudioQueue(true);
   lastTick = performance.now();
   accumulator = 0;
+};
+window.__appResume = () => {
+  discardCoreAudio();
+  resetAudioQueue(false);
+  updateAudioGain();
+  if (settings.sound) void ensureAudio();
+  lastTick = performance.now();
+  accumulator = 0;
+  applyLayout();
+};
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) window.__appPause();
+  else window.__appResume();
 });
 window.addEventListener('pagehide', () => flushSave());
 window.addEventListener('error', e => showStatus(`Error: ${e.message}`, true));
