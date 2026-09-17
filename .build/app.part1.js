@@ -5,8 +5,11 @@ const GBA_H = 160;
 const FPS = 59.7275;
 const FRAME_MS = 1000 / FPS;
 const MAX_ROM = 32 * 1024 * 1024;
-const AUDIO_RATE = 32768;
+const AUDIO_RATE = 65536; // Vendored mGBA produces 65.536 kHz stereo PCM.
 const AUDIO_PULL_FRAMES = 2048;
+const AUDIO_RING_FRAMES = 16384;
+const AUDIO_START_FRAMES = 2048;
+const AUDIO_MAX_QUEUE_FRAMES = 8192;
 const DB_NAME = 'gba-pocket-db';
 const DB_STORE = 'kv';
 
@@ -17,6 +20,11 @@ const romInput = $('#rom-file');
 const emptyState = $('#empty-state');
 const statusEl = $('#status');
 const controlsLayer = $('#controls-layer');
+const gameStage = $('#game-stage');
+const frameCanvas = document.createElement('canvas');
+frameCanvas.width = GBA_W;
+frameCanvas.height = GBA_H;
+const frameCtx = frameCanvas.getContext('2d', { alpha: false });
 
 let core = null;
 let runFrame = null;
@@ -29,7 +37,14 @@ let saveTimer = null;
 let statusTimer = null;
 let audioCtx = null;
 let gainNode = null;
-let nextAudioTime = 0;
+let audioNode = null;
+const audioRingL = new Float32Array(AUDIO_RING_FRAMES);
+const audioRingR = new Float32Array(AUDIO_RING_FRAMES);
+let audioRead = 0;
+let audioWrite = 0;
+let audioCount = 0;
+let audioPhase = 0;
+let audioPrimed = false;
 let lastTick = performance.now();
 let accumulator = 0;
 const held = new Set();
@@ -41,6 +56,7 @@ let editDrag = null;
 const defaults = {
   layout: 'auto',
   stretch: false,
+  smoothVideo: false,
   controlSize: 1,
   opacity: 0.72,
   sound: true,
