@@ -63,21 +63,26 @@ jobs:
             sleep 4
             adb shell input tap 925 625 || true
             sleep 2
-            adb shell dumpsys activity activities | grep -A 8 -B 3 com.openai.gbapocket || true
-            adb shell dumpsys activity activities | grep -Eq "ResumedActivity:.*com.openai.gbapocket/.MainActivity|topResumedActivity=.*com.openai.gbapocket/.MainActivity"
-            adb logcat -d -v brief | grep -E "AndroidRuntime|FATAL EXCEPTION|com.openai.gbapocket|GBAPocket|chromium|crash" | tail -n 250 || true
-            if adb logcat -d -v brief | grep -q "FATAL EXCEPTION"; then exit 1; fi
+            adb shell dumpsys activity activities > activity.txt
+            adb logcat -d -v brief > logcat.txt
             adb shell uiautomator dump /sdcard/window.xml || true
             adb pull /sdcard/window.xml window.xml || true
-            cat window.xml || true
             adb exec-out screencap -p > launch.png || true
+            grep -A 8 -B 3 com.openai.gbapocket activity.txt || true
+            grep -E "AndroidRuntime|FATAL EXCEPTION|com.openai.gbapocket|GBAPocket|chromium|crash" logcat.txt | tail -n 250 || true
+            grep -Eq "ResumedActivity:.*com.openai.gbapocket/.MainActivity|topResumedActivity=.*com.openai.gbapocket/.MainActivity" activity.txt
+            ! grep -q "FATAL EXCEPTION" logcat.txt
       - name: Prepare artifact
+        if: always()
         run: cp app/build/outputs/apk/debug/app-debug.apk GBA-Pocket.apk
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: GBA-Pocket-APK
           path: |
             GBA-Pocket.apk
             launch.png
             window.xml
+            activity.txt
+            logcat.txt
           retention-days: 7
