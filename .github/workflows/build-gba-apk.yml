@@ -1,6 +1,8 @@
 name: Build GBA Pocket APK
 
 on:
+  push:
+    branches: [chatgpt-gba-apk-build]
   workflow_dispatch:
 
 permissions:
@@ -35,15 +37,23 @@ jobs:
           python3 .build/patch_app.py "$ASSETS/app.js"
           node --check "$ASSETS/app.js"
           grep -q "const AUDIO_RATE = 65536" "$ASSETS/app.js"
+          grep -q "createScriptProcessor(1024, 0, 2)" "$ASSETS/app.js"
+          grep -q "ctx.drawImage(frameCanvas" "$ASSETS/app.js"
           grep -q "smoothVideo: false" "$ASSETS/app.js"
           grep -q "lostpointercapture" "$ASSETS/app.js"
+          grep -q "window.__appResume" "$ASSETS/app.js"
+          ! grep -q "createBufferSource" "$ASSETS/app.js"
           curl -fsSL "https://raw.githubusercontent.com/WSeubring/pi-extension-gba/main/vendor/mgba-wasm/dist/mgba.js" -o "$ASSETS/mgba.js"
           curl -fsSL "https://raw.githubusercontent.com/WSeubring/pi-extension-gba/main/vendor/mgba-wasm/dist/mgba.wasm" -o "$ASSETS/mgba.wasm"
           curl -fsSL "https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js" -o "$ASSETS/fflate.js"
           curl -fsSL "https://raw.githubusercontent.com/mgba-emu/mgba/master/LICENSE" -o "$ASSETS/MGBA-MPL-2.0.txt"
+          curl -fsSL "https://raw.githubusercontent.com/101arrowz/fflate/master/LICENSE" -o "$ASSETS/FFLATE-MIT.txt"
+          curl -fsSL "https://raw.githubusercontent.com/WSeubring/pi-extension-gba/main/LICENSE" -o "$ASSETS/PI-EXTENSION-GBA-MIT.txt"
           test -s "$ASSETS/mgba.js"
           test -s "$ASSETS/mgba.wasm"
           test -s "$ASSETS/fflate.js"
+          test -s "$ASSETS/FFLATE-MIT.txt"
+          test -s "$ASSETS/PI-EXTENSION-GBA-MIT.txt"
       - name: Build APK
         run: gradle --no-daemon :app:assembleDebug
       - name: Enable KVM
