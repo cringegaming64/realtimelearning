@@ -57,7 +57,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: |
-            set -euxo pipefail
+            set -eu
             adb logcat -c
             adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb shell am start -W -n com.openai.gbapocket/.MainActivity
@@ -65,12 +65,19 @@ jobs:
             PID=$(adb shell pidof com.openai.gbapocket | tr -d '\r')
             echo "PID=$PID"
             adb shell dumpsys activity activities | grep -A 8 -B 3 com.openai.gbapocket || true
-            adb logcat -d -v brief | grep -E "AndroidRuntime|FATAL EXCEPTION|com.openai.gbapocket|chromium|crash" | tail -n 250 || true
+            adb logcat -d -v brief | grep -E "AndroidRuntime|FATAL EXCEPTION|com.openai.gbapocket|GBAPocket|chromium|crash" | tail -n 250 || true
+            adb shell uiautomator dump /sdcard/window.xml || true
+            adb pull /sdcard/window.xml window.xml || true
+            cat window.xml || true
+            adb exec-out screencap -p > launch.png || true
             test -n "$PID"
       - name: Prepare artifact
         run: cp app/build/outputs/apk/debug/app-debug.apk GBA-Pocket.apk
       - uses: actions/upload-artifact@v4
         with:
           name: GBA-Pocket-APK
-          path: GBA-Pocket.apk
+          path: |
+            GBA-Pocket.apk
+            launch.png
+            window.xml
           retention-days: 7
