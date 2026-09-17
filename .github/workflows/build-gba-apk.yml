@@ -1,8 +1,6 @@
 name: Build GBA Pocket APK
 
 on:
-  push:
-    branches: [chatgpt-gba-apk-build]
   workflow_dispatch:
 
 permissions:
