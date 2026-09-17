@@ -50,6 +50,11 @@ public class MainActivity extends Activity {
         webView = new WebView(this);
         webView.setBackgroundColor(Color.BLACK);
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+        webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        webView.setLongClickable(false);
+        webView.setHapticFeedbackEnabled(false);
+        webView.setFocusableInTouchMode(true);
+        webView.requestFocus(View.FOCUS_DOWN);
         setContentView(webView);
 
         WebSettings settings = webView.getSettings();
@@ -164,7 +169,10 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         enterImmersiveMode();
-        if (webView != null) webView.onResume();
+        if (webView != null) {
+            webView.onResume();
+            webView.requestFocus(View.FOCUS_DOWN);
+        }
     }
 
     @Override
