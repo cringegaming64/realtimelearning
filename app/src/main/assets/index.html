@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#000000">
+  <title>GBA Pocket</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body data-mode="portrait">
+  <main id="app">
+    <section id="game-stage" aria-label="Game screen">
+      <canvas id="screen" width="240" height="160"></canvas>
+      <div id="empty-state">
+        <button id="open-rom" class="primary">Open .GBA or .ZIP</button>
+        <div class="muted">The selected game is stored on this device and opens automatically next time.</div>
+      </div>
+      <div id="status" role="status"></div>
+    </section>
+
+    <section id="controls-layer" aria-label="Game controls">
+      <div class="control-group" data-group="l"><button class="game-button shoulder" data-key="L">L</button></div>
+      <div class="control-group" data-group="r"><button class="game-button shoulder" data-key="R">R</button></div>
+
+      <div class="control-group" data-group="dpad">
+        <div id="dpad-zone" class="dpad" aria-label="D-pad">
+          <span class="dpad-key up">▲</span><span class="dpad-key left">◀</span>
+          <span class="dpad-key right">▶</span><span class="dpad-key down">▼</span>
+          <span class="dpad-center"></span>
+        </div>
+      </div>
+
+      <div class="control-group actions" data-group="actions">
+        <button class="game-button round b" data-key="B">B</button>
+        <button class="game-button round a" data-key="A">A</button>
+      </div>
+
+      <div class="control-group center-buttons" data-group="center">
+        <button class="game-button pill small" data-key="Select">SELECT</button>
+        <button class="game-button pill small" data-key="Start">START</button>
+      </div>
+    </section>
+
+    <button id="settings-button" aria-label="Settings">⚙</button>
+    <input id="rom-file" type="file" accept=".gba,.zip,application/zip" hidden>
+
+    <div id="settings-backdrop" hidden>
+      <section id="settings" role="dialog" aria-modal="true" aria-label="Settings">
+        <div class="settings-title"><strong>Settings</strong><button id="close-settings" aria-label="Close">×</button></div>
+
+        <label>Layout
+          <select id="layout-mode">
+            <option value="auto">Auto</option><option value="portrait">Portrait</option><option value="landscape">Landscape / widescreen</option>
+          </select>
+        </label>
+        <label class="toggle"><input id="stretch-screen" type="checkbox"> Stretch game image to widescreen</label>
+        <label>Control size <input id="control-size" type="range" min="0.70" max="1.55" step="0.05"></label>
+        <label>Control opacity <input id="control-opacity" type="range" min="0.30" max="1" step="0.05"></label>
+        <label class="toggle"><input id="sound-enabled" type="checkbox"> Sound</label>
+        <label>Volume <input id="volume" type="range" min="0" max="1" step="0.05"></label>
+        <label class="toggle"><input id="edit-controls" type="checkbox"> Move controls</label>
+        <div id="edit-help" class="muted">When enabled, drag the D-pad, A/B, L, R, or Start/Select groups.</div>
+
+        <div class="settings-actions">
+          <button id="reset-layout">Reset control positions</button>
+          <button id="change-rom">Change ROM</button>
+          <button id="forget-rom">Forget stored ROM</button>
+        </div>
+        <div class="about muted">mGBA core (MPL-2.0). No games are included. Emulator files and saves stay local to this app.</div>
+      </section>
+    </div>
+  </main>
+  <script src="./fflate.js"></script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
