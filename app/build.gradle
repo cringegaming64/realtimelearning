@@ -1,0 +1,28 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.openai.gbapocket'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.openai.gbapocket'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '1.0'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+        }
+    }
+
+    packaging {
+        resources.excludes += ['META-INF/**']
+    }
+}
