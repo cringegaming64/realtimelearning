@@ -11,7 +11,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v5
@@ -44,6 +44,29 @@ jobs:
           test -s "$ASSETS/fflate.js"
       - name: Build APK
         run: gradle --no-daemon :app:assembleDebug
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Launch smoke test
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            set -euxo pipefail
+            adb logcat -c
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -W -n com.openai.gbapocket/.MainActivity
+            sleep 5
+            PID=$(adb shell pidof com.openai.gbapocket | tr -d '\r')
+            echo "PID=$PID"
+            adb shell dumpsys activity activities | grep -A 8 -B 3 com.openai.gbapocket || true
+            adb logcat -d -v brief | grep -E "AndroidRuntime|FATAL EXCEPTION|com.openai.gbapocket|chromium|crash" | tail -n 250 || true
+            test -n "$PID"
       - name: Prepare artifact
         run: cp app/build/outputs/apk/debug/app-debug.apk GBA-Pocket.apk
       - uses: actions/upload-artifact@v4
