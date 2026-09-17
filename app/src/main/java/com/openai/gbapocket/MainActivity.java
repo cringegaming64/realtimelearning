@@ -172,6 +172,8 @@ public class MainActivity extends Activity {
         if (webView != null) {
             webView.onResume();
             webView.requestFocus(View.FOCUS_DOWN);
+            webView.evaluateJavascript(
+                    "window.__appResume && window.__appResume()", null);
         }
     }
 
